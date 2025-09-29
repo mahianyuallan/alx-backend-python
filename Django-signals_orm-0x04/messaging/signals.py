@@ -1,5 +1,6 @@
-from django.db.models.signals import post_save, pre_save
+from django.db.models.signals import post_save, pre_save, post_delete
 from django.dispatch import receiver
+from django.contrib.auth.models import User
 from .models import Message, Notification, MessageHistory
 
 
@@ -16,7 +17,7 @@ def create_notification(sender, instance, created, **kwargs):
 @receiver(pre_save, sender=Message)
 def log_message_edit(sender, instance, **kwargs):
     """Log old content when a message is edited"""
-    if instance.id:  # means it's an update
+    if instance.id:  # update, not new
         try:
             old_message = Message.objects.get(id=instance.id)
             if old_message.content != instance.content:
@@ -27,3 +28,18 @@ def log_message_edit(sender, instance, **kwargs):
                 instance.edited = True
         except Message.DoesNotExist:
             pass
+
+
+@receiver(post_delete, sender=User)
+def cleanup_user_data(sender, instance, **kwargs):
+    """Delete all messages, notifications, and histories related to the user"""
+    # Messages sent or received
+    Message.objects.filter(sender=instance).delete()
+    Message.objects.filter(receiver=instance).delete()
+
+    # Notifications
+    Notification.objects.filter(user=instance).delete()
+
+    # Orphaned message histories (if any remain after cascade)
+    MessageHistory.objects.filter(message__sender=instance).delete()
+    MessageHistory.objects.filter(message__receiver=instance).delete()
