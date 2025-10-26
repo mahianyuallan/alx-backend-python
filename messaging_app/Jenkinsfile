@@ -2,24 +2,26 @@ pipeline {
     agent any
 
     environment {
-        GITHUB_CREDENTIALS = credentials('github-creds')
+        // Reference the credentials stored in Jenkins (ID = github-creds)
+        GITHUB_USER = credentials('github-creds')
     }
 
     stages {
         stage('Checkout') {
             steps {
                 git branch: 'main',
-                    credentialsId: "${GITHUB_CREDENTIALS}",
-                    url: 'https://github.com/<your-username>/alx-backend-python.git'
+                    credentialsId: 'github-creds',
+                    url: 'https://github.com/mahianyuallan/alx-backend-python.git'
             }
         }
 
         stage('Set up Python') {
             steps {
                 sh '''
-                python3 -m venv venv
-                . venv/bin/activate
-                pip install -r messaging_app/requirements.txt
+                    python3 -m venv venv
+                    . venv/bin/activate
+                    pip install --upgrade pip
+                    pip install -r messaging_app/requirements.txt
                 '''
             }
         }
@@ -27,15 +29,22 @@ pipeline {
         stage('Run Tests') {
             steps {
                 sh '''
-                . venv/bin/activate
-                pytest --junitxml=report.xml --cov=messaging_app > result.log || true
+                    . venv/bin/activate
+                    pytest --junitxml=report.xml --cov=messaging_app > result.log || true
                 '''
             }
             post {
                 always {
                     junit 'report.xml'
+                    echo 'Test report generated and published.'
                 }
             }
+        }
+    }
+
+    post {
+        always {
+            echo 'Pipeline execution complete.'
         }
     }
 }
