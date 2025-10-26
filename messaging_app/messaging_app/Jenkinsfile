@@ -2,25 +2,28 @@ pipeline {
     agent any
 
     environment {
-        // Reference the credentials stored in Jenkins (ID = github-creds)
-        GITHUB_USER = credentials('github-creds')
+        // Use your saved Jenkins credentials ID (set in Jenkins > Manage Credentials)
+        GITHUB_CREDS = credentials('github-creds')
     }
 
     stages {
+
         stage('Checkout') {
             steps {
+                echo 'Cloning repository from GitHub...'
                 git branch: 'main',
                     credentialsId: 'github-creds',
                     url: 'https://github.com/mahianyuallan/alx-backend-python.git'
             }
         }
 
-        stage('Set up Python') {
+        stage('Set up Python Environment') {
             steps {
+                echo 'Setting up Python virtual environment...'
                 sh '''
                     python3 -m venv venv
                     . venv/bin/activate
-                    pip install --upgrade pip
+                    python -m pip install --upgrade pip
                     pip install -r messaging_app/requirements.txt
                 '''
             }
@@ -28,6 +31,7 @@ pipeline {
 
         stage('Run Tests') {
             steps {
+                echo 'Running unit tests with pytest...'
                 sh '''
                     . venv/bin/activate
                     pytest --junitxml=report.xml --cov=messaging_app > result.log || true
@@ -36,13 +40,26 @@ pipeline {
             post {
                 always {
                     junit 'report.xml'
-                    echo 'Test report generated and published.'
+                    echo '✅ Test results collected.'
                 }
+            }
+        }
+
+        stage('Archive Results') {
+            steps {
+                echo 'Archiving reports and logs...'
+                archiveArtifacts artifacts: 'result.log, report.xml', fingerprint: true
             }
         }
     }
 
     post {
+        success {
+            echo '🎉 Build and tests completed successfully!'
+        }
+        failure {
+            echo '❌ Build or tests failed. Please check the logs.'
+        }
         always {
             echo 'Pipeline execution complete.'
         }
